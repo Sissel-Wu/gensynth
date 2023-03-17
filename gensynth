@@ -81,13 +81,13 @@ def loadRelation(filename):
 
 ### CLASS DEFINITIONS ###
 class Relation:
-	def __init__(self, name, relation_type, arg_types):
+	def __init__(self, name, relation_type, arg_types): # name: String, relation_type: V, arg_types: [U, V]
 		self.name = name
 		self.relation_type = relation_type
 		self.arg_types = arg_types
 
 class Literal: # essentially an instance of a Relation
-	def __init__(self, relation, args):
+	def __init__(self, relation, args): # args: [var1: U, var2: V, ...]
 		self.relation = relation
 		self.args = args
 		self.id = "L" + get_new_id()
@@ -99,7 +99,7 @@ class Literal: # essentially an instance of a Relation
 		return output_str[:-2] + ")"
 
 class Clause:
-	def __init__(self, head_literal, body_literals, DNA):
+	def __init__(self, head_literal, body_literals, DNA): # DNA: dict[String, ?]
 		self.head_literal = head_literal
 		self.body_literals = body_literals
 		self.id = "C" + get_new_id()
@@ -129,7 +129,7 @@ class Clause:
 			else:
 				needed_arg_count[arg_type] += 1
 
-		# build body relations
+		# build body relations (randomly)
 		while True:
 			runtime_statistics["total_create_seed_clause_loops"] += 1
 
@@ -168,7 +168,7 @@ class Clause:
 					body_literal_args.append("x" + str(random.randint(0, len(max_reduction_relation.arg_types) - 1)))
 				self.body_literals.append(Literal(max_reduction_relation, body_literal_args))
 
-		for j in range(0, int(self.DNA["LITERALS_PER_SEED_PROGRAM"]) - len(self.body_literals)):
+		for j in range(0, int(self.DNA["LITERALS_PER_SEED_PROGRAM"]) - len(self.body_literals)): # fill in body placeholders?
 			body_relation = input_relations[random.randint(0, len(input_relations)-1)]
 			body_literal_args = list()
 			for k in range(0, len(body_relation.arg_types)):
@@ -308,7 +308,7 @@ class Program:
 
 		self.clauses = dict()
 		self.id = "P" + get_new_id()
-		
+
 		self.num_correct = 0
 		self.num_undesired_but_produced = 0
 		self.num_desired_but_unproduced = 0
@@ -360,7 +360,7 @@ class Program:
 		for clause in self.clauses:
 			output_str += self.clauses[clause].id[1:] + "\n"
 		return output_str
-	
+
 	def is_type_valid(self):
 		for clause_id in self.clauses:
 			if not self.clauses[clause_id].is_type_valid():
@@ -470,7 +470,7 @@ class Program:
 						# find a clause to extend
 						clause_ids = list(self.clauses).copy()
 						random.shuffle(clause_ids)
-						
+
 
 						for clause_id in clause_ids:
 							chosen_clause = self.clauses[clause_id]
@@ -480,7 +480,7 @@ class Program:
 							random.shuffle(literal_idxs)
 							for chosen_literal_idx in literal_idxs:
 								chosen_literal = chosen_clause.body_literals[chosen_literal_idx]
-								
+
 								# find an argument to pull from the literal
 								replaced_arg_idxs = list()
 								for replaced_arg_idx, replaced_arg_type in enumerate(chosen_literal.relation.arg_types):
@@ -527,7 +527,7 @@ class Program:
 									new_literal = Literal(chosen_relation, new_literal_args)
 
 									chosen_clause.body_literals.append(new_literal)
-									
+
 									assert self.is_type_valid()
 									return True
 
@@ -536,7 +536,7 @@ class Program:
 
 	def mutation_swap(self):
 		self.mutation_log.append("SWAP")
-		
+
 		assert self.is_type_valid()
 		clause_ids = list(self.clauses).copy()
 		random.shuffle(clause_ids)
@@ -631,7 +631,7 @@ class Program:
 
 						assert self.is_type_valid()
 						return True
-		
+
 		assert self.is_type_valid()
 
 	def mutation_create_inv(self):
@@ -752,7 +752,7 @@ class Program:
 		#	return replace_one_body(self) or replace_one_head(self)
 		#else:
 		#	return replace_one_head(self) or replace_one_body(self)
-			
+
 
 	def optimization_minimize_num_clauses_once(self, cache): # removes a random clause from the program
 		assert self.is_type_valid()
@@ -871,7 +871,7 @@ class Program:
 			return remove_repeats_clause(self) or remove_repeats_literal(self)
 		else:
 			return remove_repeats_literal(self) or remove_repeats_clause(self)
-			
+
 
 	def optimization_minimize_num_literals_once(self, cache): # remove a random literal, once (but only if there are at least two literals in a clause)
 		assert self.is_type_valid()
@@ -893,7 +893,7 @@ class Program:
 					temp_program.clauses[clause_id].body_literals.pop(literal_id)
 					if temp_program.is_grounded() and (not temp_program.datalog_program() in cache):
 						self.clauses[clause_id].body_literals.pop(literal_id)
-					
+
 						assert self.is_type_valid()
 						assert self.is_grounded()
 						return True
@@ -903,7 +903,7 @@ class Program:
 
 	def run(self): #updates fitness, num_undesired_but_produced, num_desired_but_unproduced
 		souffle_run_start_time = time.time()
-		runtime_statistics["souffle_calls"] += 1
+		runtime_statistics["souffle_calls"] += 1  # not shown in log
 
 		global calls_souffle
 		global use_undesired
@@ -923,7 +923,7 @@ class Program:
 						  universal_newlines=True)
 		souffle_proc.wait()
 
-		calls_souffle += 1
+		calls_souffle += 1  # could be overwritten
 
 		rel_produced = loadRelation(benchmarks_directory + '/' + str(self.subprocess_id) + '/' + benchmark_name + '/' + self.output_relation.name + '.csv')
 		rel_expected = loadRelation(benchmarks_directory + '/' + str(self.subprocess_id) + '/' + benchmark_name + '/' + self.output_relation.name + '.expected')	
@@ -941,7 +941,7 @@ class Program:
 		self.fitness = fScore(self.num_correct, self.num_undesired_but_produced, self.num_desired_but_unproduced, self.DNA["BETA"])
 		self.f1 = fScore(self.num_correct, self.num_undesired_but_produced, self.num_desired_but_unproduced, 1)
 
-		runtime_statistics["souffle_time"] += time.time() - souffle_run_start_time
+		runtime_statistics["souffle_time"] += time.time() - souffle_run_start_time # not shown in log
 
 		total_program_size = 0
 		for clause in self.clauses:
