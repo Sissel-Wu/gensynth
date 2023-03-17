@@ -45,6 +45,7 @@ REDUCTION_POPULATION_SIZE = 10 # number of programs. we use first found solution
 # PROGRAM LIMITS: both limit execution of program in different ways -- both not necessary
 GENERATION_LIMIT = 5000 # maximum number of generations tried
 TIMEOUT = 6000
+PHYSIC_THREADS = 8
 
 TARGET_SCORE = cmd_args.target_score # float(sys.argv[6])
 OPTIMIZATION_TARGET = TARGET_SCORE
@@ -54,7 +55,7 @@ SOUFFLE_PATH = cmd_args.souffle_path
 runtime_statistics = {"time_accretion": 0, "time_reduction": 0, "reduction_calls": 0, "reduction_num_loops": 0, "solved_subprocess_id": -1, "solution_total_num_literals": 0, "solution_num_clauses": 0, "solution_max_num_literals": 0, "opt_solution_total_num_literals": 0, "opt_solution_num_clauses": 0, "opt_solution_max_num_literals": 0, "runtime": 0, "fix_ungrounded_args_time": 0, "create_seed_clause_time": 0, "create_linear_clause_time": 0, "create_linear_clause_type_safe_time": 0, "souffle_time": 0, "souffle_calls": 0, "mutating_time": 0, "mutating_num_loops": 0, "generations_to_completion": 0, "total_create_seed_clause_loops": 0, "total_create_linear_clause_type_safe_loops": 0, "total_create_linear_clause_loops": 0, "total_create_seed_clause_calls": 0, "total_create_linear_clause_calls": 0, "total_create_linear_clause_type_safe_calls": 0, "mutating_calls": 0, "solved": 0}
 
 # fix seed for debugging
-random.seed(233)
+# random.seed(233)
 
 ### HELPER FUNCTIONS ###
 
@@ -1341,6 +1342,26 @@ def run_accretion(population, subprocess_id):
             return (population.programs[0], subprocess_id, i)
         population.generate_offspring_accretion()
 
+def run_accretion_batch(populations, subprocess_ids):
+    global final_acc_program
+    global final_acc_subprocess_id
+
+    for i in range(0, GENERATION_LIMIT):
+        for j in range(len(populations)):
+            population = populations[j]
+            subprocess_id = subprocess_ids[j]
+            population.subprocess_id = subprocess_id
+            # save_statistics(subprocess_id)
+            # print("\n\n\n--- POPULATION OVERVIEWS | GENERATION " + str(i) + " ---")
+            population.compete()
+            population.remove_weakest("ACCRETION")
+            save_population(population, subprocess_id)
+            print(population)
+            if population.programs[0].f1 >= TARGET_SCORE:
+                print("CLOSING POOL BASED ON SUBPROCESS: " + str(subprocess_id))
+                return (population.programs[0], subprocess_id, i)
+            population.generate_offspring_accretion()
+
 final_red_programs = list()
 final_red_subprocess_ids = list()
 final_red_generations_to_completions = list()
@@ -1350,17 +1371,37 @@ def run_reduction(population, subprocess_id):
 
     population.subprocess_id = subprocess_id
     for i in range(0, GENERATION_LIMIT):
-        #save_statistics(subprocess_id)
+        # save_statistics(subprocess_id)
         print("\n\n\n--- POPULATION OVERVIEWS | GENERATION " + str(i) + " ---")
         print(population)
         population.compete()
         population.remove_weakest("REDUCTION")
         save_population(population, subprocess_id)
-        #print(population)
-        if not population.generate_offspring_reduction(): # no child programs could be generated
+        # print(population)
+        if not population.generate_offspring_reduction():  # no child programs could be generated
             print("CLOSING POOL BASED ON SUBPROCESS: " + str(subprocess_id))
-            #print(population)
+            # print(population)
             return (population.programs[0], subprocess_id, i)
+
+def run_reduction_batch(populations, subprocess_ids):
+    global final_red_program
+    global final_red_subprocess_id
+
+    for i in range(0, GENERATION_LIMIT):
+        for j in range(len(populations)):
+            population = populations[j]
+            subprocess_id = subprocess_ids[j]
+            # save_statistics(subprocess_id)
+            print("\n\n\n--- POPULATION OVERVIEWS | GENERATION " + str(i) + " ---")
+            print(population)
+            population.compete()
+            population.remove_weakest("REDUCTION")
+            save_population(population, subprocess_id)
+            # print(population)
+            if not population.generate_offspring_reduction():  # no child programs could be generated
+                print("CLOSING POOL BASED ON SUBPROCESS: " + str(subprocess_id))
+                # print(population)
+                return (population.programs[0], subprocess_id, i)
 
 def stall_process():
     time.sleep(TIMEOUT)
@@ -1398,11 +1439,18 @@ if __name__ == "__main__":
             populations.append(Population(ACCRETION_POPULATION_SIZE, input_relations, output_relation, i))
 
         accretion_start_time = time.time()
-        pool = multiprocessing.Pool(multiprocessing.cpu_count())
-        for idx in range(len(populations)):
-            print("starting subproc: " + str(idx))
-            pool.apply_async(run_accretion, args=(populations[idx], idx), callback=(halt_acc_algorithm))
-            #run_accretion(populations[idx], idx)
+        # pool = multiprocessing.Pool(multiprocessing.cpu_count())
+        pool = multiprocessing.Pool(PHYSIC_THREADS)
+        batches = []
+        for i in range(0, PHYSIC_THREADS):
+            indexes = [j for j in range(0, NUM_POPULATIONS) if j % PHYSIC_THREADS == i]
+            print("staring subproc: " + str(indexes))
+            pool.apply_async(run_accretion_batch, args=([populations[idx] for idx in indexes], indexes), callback=(halt_acc_algorithm))
+
+        # for idx in range(len(populations)):
+        #     print("starting subproc: " + str(idx))
+        #     pool.apply_async(run_accretion, args=(populations[idx], idx), callback=(halt_acc_algorithm))
+        #     #run_accretion(populations[idx], idx)
         pool.apply_async(stall_process, args=(), callback=(halt_acc_algorithm))
         pool.close()
         pool.join()
@@ -1431,10 +1479,16 @@ if __name__ == "__main__":
             for i in range(0, NUM_POPULATIONS):
                 populations.append(Population(REDUCTION_POPULATION_SIZE, input_relations, output_relation, i, final_acc_program))
 
-            pool = multiprocessing.Pool(multiprocessing.cpu_count())
-            for idx in range(len(populations)):
-                print("starting subproc: " + str(idx))
-                pool.apply_async(run_reduction, args=(populations[idx], idx), callback=(halt_red_algorithm))
+            # pool = multiprocessing.Pool(multiprocessing.cpu_count())
+            pool = multiprocessing.Pool(PHYSIC_THREADS)
+            for i in range(0, PHYSIC_THREADS):
+                indexes = [j for j in range(0, NUM_POPULATIONS) if j % PHYSIC_THREADS == i]
+                print("staring subproc: " + str(indexes))
+                pool.apply_async(run_reduction_batch, args=([populations[idx] for idx in indexes], indexes), callback=(halt_red_algorithm))
+
+            # for idx in range(len(populations)):
+            #     print("starting subproc: " + str(idx))
+            #     pool.apply_async(run_reduction, args=(populations[idx], idx), callback=(halt_red_algorithm))
                 #run_reduction(populations[idx], idx)
             #pool.apply_async(stall_process, args=(), callback=(halt_red_algorithm))
             pool.close()
