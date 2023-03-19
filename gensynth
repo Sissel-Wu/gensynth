@@ -45,7 +45,7 @@ REDUCTION_POPULATION_SIZE = 10 # number of programs. we use first found solution
 # PROGRAM LIMITS: both limit execution of program in different ways -- both not necessary
 GENERATION_LIMIT = 5000 # maximum number of generations tried
 TIMEOUT = 6000
-PHYSIC_THREADS = 8
+PHYSIC_THREADS = cmd_args.physic_threads
 
 TARGET_SCORE = cmd_args.target_score # float(sys.argv[6])
 OPTIMIZATION_TARGET = TARGET_SCORE
@@ -1442,10 +1442,11 @@ if __name__ == "__main__":
 
         accretion_start_time = time.time()
         # pool = multiprocessing.Pool(multiprocessing.cpu_count())
-        pool = multiprocessing.Pool(PHYSIC_THREADS)
+        num_threads = min(PHYSIC_THREADS, NUM_POPULATIONS)
+        pool = multiprocessing.Pool(num_threads)
         batches = []
-        for i in range(0, PHYSIC_THREADS):
-            indexes = [j for j in range(0, NUM_POPULATIONS) if j % PHYSIC_THREADS == i]
+        for i in range(0, num_threads):
+            indexes = [j for j in range(0, NUM_POPULATIONS) if j % num_threads == i]
             print("staring subproc: " + str(indexes))
             pool.apply_async(run_accretion_batch, args=([populations[idx] for idx in indexes], indexes), callback=(halt_acc_algorithm))
 
@@ -1482,9 +1483,9 @@ if __name__ == "__main__":
                 populations.append(Population(REDUCTION_POPULATION_SIZE, input_relations, output_relation, i, final_acc_program))
 
             # pool = multiprocessing.Pool(multiprocessing.cpu_count())
-            pool = multiprocessing.Pool(PHYSIC_THREADS)
-            for i in range(0, PHYSIC_THREADS):
-                indexes = [j for j in range(0, NUM_POPULATIONS) if j % PHYSIC_THREADS == i]
+            pool = multiprocessing.Pool(num_threads)
+            for i in range(0, num_threads):
+                indexes = [j for j in range(0, NUM_POPULATIONS) if j % num_threads == i]
                 print("staring subproc: " + str(indexes))
                 pool.apply_async(run_reduction_batch, args=([populations[idx] for idx in indexes], indexes), callback=(halt_red_algorithm))
 
