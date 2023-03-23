@@ -1323,6 +1323,10 @@ def save_final_program(program, subprocess_id):
     myf.write(str(program))
     myf.close()
 
+    another_file = open(benchmarks_directory + "/0/" + benchmark_name + "/" + "final_program.dl", "w")
+    another_file.write(program.datalog_program())
+    another_file.close()
+
 
 final_acc_program = None
 final_acc_subprocess_id = -1
