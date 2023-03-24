@@ -44,7 +44,7 @@ REDUCTION_POPULATION_SIZE = 10 # number of programs. we use first found solution
 
 # PROGRAM LIMITS: both limit execution of program in different ways -- both not necessary
 GENERATION_LIMIT = 5000 # maximum number of generations tried
-TIMEOUT = 6000
+TIMEOUT = 500
 PHYSIC_THREADS = cmd_args.physic_threads
 
 TARGET_SCORE = cmd_args.target_score # float(sys.argv[6])
@@ -1067,7 +1067,9 @@ class Population:
         f.close()
 
         # print('before invoking souffle')
-        souffle_result = subprocess.run([SOUFFLE_PATH, benchmarks_directory + '/' + str(self.subprocess_id) + '/' + benchmark_name + '/temp_program.dl', '-F', (benchmarks_directory + '/' + str(self.subprocess_id) + '/' + benchmark_name), '-D', (benchmarks_directory + '/' + str(self.subprocess_id) + '/' + benchmark_name)], \
+        import platform
+        timeoutApp = 'gtimeout' if platform.system() == 'Darwin' else 'timeout'
+        souffle_result = subprocess.run([timeoutApp, str(TIMEOUT), SOUFFLE_PATH, benchmarks_directory + '/' + str(self.subprocess_id) + '/' + benchmark_name + '/temp_program.dl', '-F', (benchmarks_directory + '/' + str(self.subprocess_id) + '/' + benchmark_name), '-D', (benchmarks_directory + '/' + str(self.subprocess_id) + '/' + benchmark_name)], \
                                         stdin=subprocess.PIPE, \
                                         stdout=subprocess.PIPE, \
                                         stderr=subprocess.PIPE, \
@@ -1424,6 +1426,7 @@ def halt_acc_algorithm(r):
     final_acc_subprocess_id = r[1]
     final_acc_generations_to_completion = r[2]
     pool.terminate()
+    pool.join()
 
 def halt_red_algorithm(r):
     global final_red_programs
