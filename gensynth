@@ -1066,7 +1066,7 @@ class Population:
         f.write(datalog_rule_facts)
         f.close()
 
-        # print('before invoking souffle')
+        print('before invoking souffle')
         import platform
         timeoutApp = 'gtimeout' if platform.system() == 'Darwin' else 'timeout'
         souffle_result = subprocess.run([timeoutApp, str(TIMEOUT), SOUFFLE_PATH, benchmarks_directory + '/' + str(self.subprocess_id) + '/' + benchmark_name + '/temp_program.dl', '-F', (benchmarks_directory + '/' + str(self.subprocess_id) + '/' + benchmark_name), '-D', (benchmarks_directory + '/' + str(self.subprocess_id) + '/' + benchmark_name)], \
@@ -1075,7 +1075,9 @@ class Population:
                                         stderr=subprocess.PIPE, \
                                         universal_newlines=True)
         # souffle_proc.wait()
-        # print('after invoking souffle')
+        print('after invoking souffle')
+        if souffle_result.returncode != 0:
+            print(souffle_result.stderr)
         calls_souffle += 1
 
         # updates program statuses
